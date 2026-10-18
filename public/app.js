@@ -1,5 +1,5 @@
 /**
- * KhanCricinfo - Modern Sports UI Controller with Players & Pakistan Spotlight
+ * KhanCricinfo - Modern Sports UI Controller with Flag Fixes & Players Directory
  */
 
 const REFRESH_SECONDS = 90;
@@ -146,6 +146,20 @@ async function loadLiveMatches() {
       const seriesName = m.series?.name || m.series?.longName || "Cricket Series";
       const stage = detectStage(m);
 
+      // Robust Flag URL Resolver (Checks team object image, logo, or constructs Cricinfo CDN URL if team id is present)
+      const getTeamFlag = (teamObj) => {
+        if (teamObj.team?.imageUrl) {
+          return `${CDN_BASE}${teamObj.team.imageUrl}`;
+        }
+        if (teamObj.team?.logoUrl) {
+          return `${CDN_BASE}${teamObj.team.logoUrl}`;
+        }
+        if (teamObj.team?.id || teamObj.team?.objectId) {
+          return `${CDN_BASE}/image/fetch/w_160,c_fill,g_face/${teamObj.team.id || teamObj.team.objectId}`;
+        }
+        return "";
+      };
+
       return {
         objectId: m.objectId || m.id,
         seriesObjectId: m.series?.objectId || m.series?.id || "",
@@ -156,10 +170,10 @@ async function loadLiveMatches() {
         isPakMens: isPakistanMensNationalMatch(team1Name, team2Name, seriesName),
         team1: team1Name,
         team1Abbr: t1.team?.abbreviation || team1Name.slice(0, 3).toUpperCase(),
-        flag1: t1.team?.imageUrl ? `${CDN_BASE}${t1.team.imageUrl}` : "",
+        flag1: getTeamFlag(t1),
         team2: team2Name,
         team2Abbr: t2.team?.abbreviation || team2Name.slice(0, 3).toUpperCase(),
-        flag2: t2.team?.imageUrl ? `${CDN_BASE}${t2.team.imageUrl}` : "",
+        flag2: getTeamFlag(t2),
         score1: t1.score || "",
         score2: t2.score || "",
         status: buildStatusText(m, stage),
@@ -311,11 +325,17 @@ function renderTopCarouselAndTicker() {
         </div>
         <div class="teams-list" style="padding:10px 12px; margin-bottom:10px;">
           <div class="team-entry">
-            <span class="team-info" style="font-size:0.86rem;">${sanitize(m.team1Abbr)}</span>
+            <div class="team-info" style="font-size:0.86rem;">
+              ${m.flag1 ? `<img class="team-flag" src="${sanitize(m.flag1)}" alt="" onerror="this.style.display='none'">` : ""}
+              <span>${sanitize(m.team1Abbr)}</span>
+            </div>
             <span class="team-score" style="font-size:0.85rem;">${sanitize(m.score1 || "-")}</span>
           </div>
           <div class="team-entry">
-            <span class="team-info" style="font-size:0.86rem;">${sanitize(m.team2Abbr)}</span>
+            <div class="team-info" style="font-size:0.86rem;">
+              ${m.flag2 ? `<img class="team-flag" src="${sanitize(m.flag2)}" alt="" onerror="this.style.display='none'">` : ""}
+              <span>${sanitize(m.team2Abbr)}</span>
+            </div>
             <span class="team-score" style="font-size:0.85rem;">${sanitize(m.score2 || "-")}</span>
           </div>
         </div>
