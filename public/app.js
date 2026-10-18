@@ -5,6 +5,20 @@
 const REFRESH_SECONDS = 90;
 const CDN_BASE = "https://img1.hscicdn.com/image/upload/f_auto,t_ds_square_w_160,q_50";
 
+// Full Member International Teams for Priority Sorting
+const INTL_TEAMS = [
+  "pakistan", "india", "australia", "england", "south africa",
+  "new zealand", "sri lanka", "west indies", "bangladesh",
+  "afghanistan", "zimbabwe", "ireland", "scotland", "netherlands",
+  "namibia", "nepal", "usa", "united arab emirates", "oman", "canada"
+];
+
+// Domestic Pakistan teams to exclude from the National Men's Spotlight
+const DOMESTIC_PAK_EXCLUSIONS = [
+  "pakistan tv", "pakistan television", "pakistan hkg", "pakistan a",
+  "pakistan shaheens", "pakistan u19", "pakistan under-19", "pakistan women"
+];
+
 const state = {
   currentView: "current",
   rawMatches: [],
@@ -18,6 +32,8 @@ const state = {
 
 const elements = {
   grid: document.getElementById("matches-grid"),
+  pakSection: document.getElementById("pak-spotlight-section"),
+  pakGrid: document.getElementById("pak-matches-grid"),
   featuredStrip: document.getElementById("featured-strip"),
   topTicker: document.getElementById("top-ticker"),
   sectionHeading: document.getElementById("section-heading"),
@@ -41,13 +57,36 @@ function sanitize(str) {
   }[t] || t));
 }
 
-// Clean raw ESPN placeholder variables like {{MATCH_START_HOURS}}
-function cleanStatusText(rawText) {
-  if (!rawText) return "Scheduled";
-  if (rawText.includes("{{")) {
-    return "Scheduled • Upcoming Fixture";
+// Format ISO timestamp into readable Pakistan Standard Time (PKT)
+function formatStartTimePKT(m) {
+  const rawDate = m.startTime || m.startDate || m.date;
+  if (!rawDate) return null;
+  const parsed = new Date(rawDate);
+  if (isNaN(parsed.getTime())) return null;
+
+  return parsed.toLocaleString("en-PK", {
+    timeZone: "Asia/Karachi",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  }) + " PKT";
+}
+
+// Resolve clean status text with real start time if template placeholders appear
+function buildStatusText(m, stage) {
+  const rawText = m.statusText || m.status || "";
+  const formattedTime = formatStartTimePKT(m);
+
+  if (rawText.includes("{{") || rawText.toLowerCase().includes("yet to begin") || stage === "upcoming") {
+    if (formattedTime) {
+      return `Starts ${formattedTime}`;
+    }
+    return "Upcoming Scheduled Match";
   }
-  return rawText;
+
+  return rawText || "Match Scheduled";
 }
 
 function setStatus(msg, isAlert = false) {
@@ -59,7 +98,6 @@ function setStatus(msg, isAlert = false) {
   elements.statusBar.textContent = msg;
 }
 
-// Classify match into 'live', 'upcoming', or 'completed'
 function detectStage(m) {
   const rawState = (m.state || "").toUpperCase();
   const rawStage = (m.stage || "").toUpperCase();
@@ -71,6 +109,7 @@ function detectStage(m) {
     statusTxt.includes("yet to begin") ||
     statusTxt.includes("starts at") ||
     statusTxt.includes("starts in") ||
+    statusTxt.includes("{{") ||
     statusTxt.includes("upcoming")
   ) {
     return "upcoming";
@@ -96,9 +135,49 @@ function detectStage(m) {
   return "completed";
 }
 
+// Identify whether a match is International vs Domestic
+function isInternationalMatch(m, t1Name, t2Name, seriesName) {
+  const intlClass = m.internationalClassId || m.generalClassId;
+  if (intlClass === 1 || intlClass === 2 || intlClass === 3) return true;
+
+  const sLow = seriesName.toLowerCase();
+  const t1Low = t1Name.toLowerCase();
+  const t2Low = t2Name.toLowerCase();
+
+  // Exclude domestic trophies explicitly
+  if (
+    sLow.includes("president's trophy") ||
+    sLow.includes("quaid-e-azam") ||
+    sLow.includes("county") ||
+    sLow.includes("sheffield") ||
+    sLow.includes("spring challenge") ||
+    sLow.includes("hkpl") ||
+    sLow.includes("grade-i")
+  ) {
+    return false;
+  }
+
+  const bothIntlTeams = INTL_TEAMS.includes(t1Low) && INTL_TEAMS.includes(t2Low);
+  const hasIntlKeyword = sLow.includes("icc") || sLow.includes("world cup") || sLow.includes("tri-series") || sLow.includes("tour of");
+
+  return bothIntlTeams || hasIntlKeyword;
+}
+
+// Identify strictly Pakistan Men's National Team matches
+function isPakistanMensNationalMatch(t1Name, t2Name, seriesName) {
+  const t1 = t1Name.trim().toLowerCase();
+  const t2 = t2Name.trim().toLowerCase();
+  const s = seriesName.toLowerCase();
+
+  if (s.includes("women") || t1.includes("women") || t2.includes("women")) return false;
+  if (DOMESTIC_PAK_EXCLUSIONS.includes(t1) || DOMESTIC_PAK_EXCLUSIONS.includes(t2)) return false;
+
+  return t1 === "pakistan" || t2 === "pakistan" || s.includes("pakistan odi") || s.includes("pakistan t20") || s.includes("pakistan test");
+}
+
 async function loadLiveMatches() {
   setStatus(null);
-  elements.grid.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading live cricket scores...</p></div>';
+  elements.grid.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading international & live cricket scores...</p></div>';
 
   try {
     const res = await fetch("/api/live");
@@ -108,29 +187,51 @@ async function loadLiveMatches() {
       throw new Error(json.error || "Failed to load matches");
     }
 
-    state.rawMatches = json.data.matches.map(m => {
+    const mapped = json.data.matches.map(m => {
       const t1 = m.teams?.[0] || {};
       const t2 = m.teams?.[1] || {};
+      const team1Name = t1.team?.name || t1.team?.longName || "Team 1";
+      const team2Name = t2.team?.name || t2.team?.longName || "Team 2";
+      const seriesName = m.series?.name || m.series?.longName || "Cricket Series";
+      const stage = detectStage(m);
+      const isIntl = isInternationalMatch(m, team1Name, team2Name, seriesName);
+      const isPakMens = isPakistanMensNationalMatch(team1Name, team2Name, seriesName);
 
       return {
-        objectId: m.objectId,
+        objectId: m.objectId || m.id,
+        seriesObjectId: m.series?.objectId || m.series?.id || "",
         title: m.title || "",
         format: (m.format || "MATCH").toUpperCase(),
-        stage: detectStage(m),
-        team1: t1.team?.name || "Team 1",
-        team1Abbr: t1.team?.abbreviation || t1.team?.name || "T1",
+        stage: stage,
+        isInternational: isIntl,
+        isPakMens: isPakMens,
+        team1: team1Name,
+        team1Abbr: t1.team?.abbreviation || team1Name.slice(0, 3).toUpperCase(),
         flag1: t1.team?.imageUrl ? `${CDN_BASE}${t1.team.imageUrl}` : "",
-        team2: t2.team?.name || "Team 2",
-        team2Abbr: t2.team?.abbreviation || t2.team?.name || "T2",
+        team2: team2Name,
+        team2Abbr: t2.team?.abbreviation || team2Name.slice(0, 3).toUpperCase(),
         flag2: t2.team?.imageUrl ? `${CDN_BASE}${t2.team.imageUrl}` : "",
-        score1: t1.score || "",
-        score2: t2.score || "",
-        status: cleanStatusText(m.statusText || m.status),
-        series: m.series?.name || "International Cricket",
+        score1: t1.score || (t1.scoreInfo ? `${t1.scoreInfo}` : ""),
+        score2: t2.score || (t2.scoreInfo ? `${t2.scoreInfo}` : ""),
+        status: buildStatusText(m, stage),
+        startTimePKT: formatStartTimePKT(m),
+        series: seriesName,
         venue: m.ground?.smallName || m.ground?.name || ""
       };
     });
 
+    // Priority Sort:
+    // 1. Pakistan Men's National Matches
+    // 2. International Live -> International Upcoming -> International Completed
+    // 3. Domestic Live -> Domestic Upcoming -> Domestic Completed
+    const stageWeight = { live: 3, upcoming: 2, completed: 1 };
+    state.rawMatches = mapped.sort((a, b) => {
+      if (a.isPakMens !== b.isPakMens) return a.isPakMens ? -1 : 1;
+      if (a.isInternational !== b.isInternational) return a.isInternational ? -1 : 1;
+      return (stageWeight[b.stage] || 0) - (stageWeight[a.stage] || 0);
+    });
+
+    renderPakistanSpotlight();
     renderTopCarouselAndTicker();
     applyFilters();
   } catch (err) {
@@ -139,8 +240,30 @@ async function loadLiveMatches() {
   }
 }
 
+// Render Dedicated Pakistan Men's Cricket Center
+function renderPakistanSpotlight() {
+  const pakMatches = state.rawMatches.filter(m => m.isPakMens);
+
+  if (pakMatches.length === 0) {
+    elements.pakGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; background: rgba(255,255,255,0.1); padding: 14px 18px; border-radius: 12px; font-size: 0.88rem;">
+        No live or immediate Pakistan Men's National Team match in the current feed. Check the <strong>Series & Tours</strong> tab for upcoming Pakistan series!
+      </div>
+    `;
+    return;
+  }
+
+  elements.pakGrid.innerHTML = "";
+  pakMatches.forEach(m => {
+    const card = buildMatchCardElement(m);
+    elements.pakGrid.appendChild(card);
+  });
+}
+
+// Top Carousel & Ticker prioritizes International matches
 function renderTopCarouselAndTicker() {
-  const featured = state.rawMatches.slice(0, 8);
+  const intlList = state.rawMatches.filter(m => m.isInternational);
+  const featured = (intlList.length >= 4 ? intlList : state.rawMatches).slice(0, 8);
 
   if (featured.length > 0) {
     elements.topTicker.innerHTML = featured.map((m, idx) => `
@@ -216,17 +339,31 @@ async function loadSeries() {
   }
 }
 
+// Extract innings array regardless of ESPN nesting depth
+function extractInningsList(data) {
+  if (!data) return [];
+  if (Array.isArray(data.innings)) return data.innings;
+  if (Array.isArray(data.content?.innings)) return data.content.innings;
+  if (Array.isArray(data.scorecard?.innings)) return data.scorecard.innings;
+  if (Array.isArray(data.data?.innings)) return data.data.innings;
+  return [];
+}
+
+// Open Match Modal & Fetch Full Scorecard + Fallback Match Details
 async function openMatchModal(m) {
   elements.modalSeriesTitle.textContent = `${m.team1} vs ${m.team2} — ${m.series}`;
   elements.modalBody.innerHTML = `
     <div style="margin-bottom: 16px;">
-      <p style="font-size:0.84rem; color:#64748b; font-weight:600;">${sanitize(m.title)} ${m.venue ? `• 📍 ${sanitize(m.venue)}` : ""}</p>
+      <p style="font-size:0.84rem; color:#64748b; font-weight:600;">
+        ${sanitize(m.title)} ${m.venue ? `• 📍 ${sanitize(m.venue)}` : ""}
+        ${m.startTimePKT ? `• 🕒 ${sanitize(m.startTimePKT)}` : ""}
+      </p>
       <div style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:14px 16px; border-radius:12px; margin:12px 0;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:1.05rem;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:1.05rem; color:#0f172a;">
           <strong>${sanitize(m.team1)}</strong>
           <strong style="color:#047857;">${sanitize(m.score1 || "-")}</strong>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:1.05rem;">
+        <div style="display:flex; justify-content:space-between; font-size:1.05rem; color:#0f172a;">
           <strong>${sanitize(m.team2)}</strong>
           <strong style="color:#047857;">${sanitize(m.score2 || "-")}</strong>
         </div>
@@ -237,7 +374,7 @@ async function openMatchModal(m) {
     </div>
     <div id="scorecard-loader" style="text-align:center; padding:18px; color:#64748b; font-size:0.86rem;">
       <div class="spinner"></div>
-      Fetching detailed scorecard...
+      Fetching full batting & bowling scorecard...
     </div>
   `;
   elements.modal.classList.remove("hidden");
@@ -245,44 +382,90 @@ async function openMatchModal(m) {
   if (!m.objectId) return;
 
   try {
-    const res = await fetch(`/api/scorecard/${m.objectId}`);
+    const query = m.seriesObjectId ? `?seriesId=${encodeURIComponent(m.seriesObjectId)}` : "";
+    const res = await fetch(`/api/scorecard/${m.objectId}${query}`);
     const json = await res.json();
     const loader = document.getElementById("scorecard-loader");
     if (!loader) return;
 
-    const innings = json.data?.innings || json.data?.content?.innings || [];
-    if (!json.success || !Array.isArray(innings) || innings.length === 0) {
-      loader.innerHTML = "<p>Full batting scorecard is not yet available for this match.</p>";
+    const innings = extractInningsList(json.data);
+
+    // If innings exist, render full Batting & Bowling tables
+    if (json.success && innings.length > 0) {
+      loader.outerHTML = innings.map(inn => {
+        const batsmen = inn.inningBatsmen || inn.batsmen || [];
+        const bowlers = inn.inningBowlers || inn.bowlers || [];
+
+        const batRows = batsmen.map(b => `
+          <tr>
+            <td>
+              <strong>${sanitize(b.player?.name || b.player?.longName || b.name || "Batter")}</strong>
+              ${b.dismissalText?.short ? `<div style="font-size:0.73rem;color:#64748b;">${sanitize(b.dismissalText.short)}</div>` : ""}
+            </td>
+            <td><strong>${b.runs ?? "-"}</strong></td>
+            <td>${b.balls ?? "-"}</td>
+            <td>${b.fours ?? "-"}</td>
+            <td>${b.sixes ?? "-"}</td>
+            <td>${b.strikeRate ?? b.sr ?? "-"}</td>
+          </tr>
+        `).join("");
+
+        const bowlRows = bowlers.map(bw => `
+          <tr>
+            <td><strong>${sanitize(bw.player?.name || bw.player?.longName || bw.name || "Bowler")}</strong></td>
+            <td>${bw.overs ?? "-"}</td>
+            <td>${bw.maidens ?? "-"}</td>
+            <td>${bw.conceded ?? bw.runs ?? "-"}</td>
+            <td><strong>${bw.wickets ?? "-"}</strong></td>
+            <td>${bw.economy ?? "-"}</td>
+          </tr>
+        `).join("");
+
+        return `
+          <div style="margin-top:18px;">
+            <h4 style="background:#0f172a; color:#fff; padding:9px 12px; font-size:0.85rem; border-radius:8px; display:flex; justify-content:space-between;">
+              <span>${sanitize(inn.team?.name || inn.teamName || "Innings")}</span>
+              <span>${inn.runs !== undefined ? `${inn.runs}/${inn.wickets ?? 0} (${inn.overs ?? 0} ov)` : ""}</span>
+            </h4>
+            <table class="cb-score-table">
+              <thead>
+                <tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>
+              </thead>
+              <tbody>${batRows || '<tr><td colspan="6">Yet to bat</td></tr>'}</tbody>
+            </table>
+            ${bowlRows ? `
+              <table class="cb-score-table" style="margin-top:10px;">
+                <thead>
+                  <tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>ECON</th></tr>
+                </thead>
+                <tbody>${bowlRows}</tbody>
+              </table>
+            ` : ""}
+          </div>
+        `;
+      }).join("");
       return;
     }
 
-    loader.outerHTML = innings.map(inn => {
-      const batsmen = inn.inningBatsmen || inn.batsmen || [];
-      const rows = batsmen.slice(0, 11).map(b => `
-        <tr>
-          <td><strong>${sanitize(b.player?.name || b.name || "Batter")}</strong></td>
-          <td><strong>${b.runs ?? "-"}</strong></td>
-          <td>${b.balls ?? "-"}</td>
-          <td>${b.fours ?? "-"}</td>
-          <td>${b.sixes ?? "-"}</td>
-          <td>${b.strikeRate ?? "-"}</td>
-        </tr>
-      `).join("");
+    // Fallback for Upcoming Matches: Fetch Match Details / Squads
+    const detailRes = await fetch(`/api/match-details/${m.objectId}${query}`);
+    const detailJson = await detailRes.json();
 
-      return `
-        <div style="margin-top:16px;">
-          <h4 style="background:#0f172a; color:#fff; padding:8px 12px; font-size:0.84rem; border-radius:8px;">
-            ${sanitize(inn.team?.name || "Innings")} ${inn.runs ? `— ${inn.runs}/${inn.wickets} (${inn.overs} ov)` : ""}
-          </h4>
-          <table class="cb-score-table">
-            <thead>
-              <tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>
-            </thead>
-            <tbody>${rows || '<tr><td colspan="6">No batting lines recorded</td></tr>'}</tbody>
-          </table>
+    if (detailJson.success && detailJson.data) {
+      const d = detailJson.data.match || detailJson.data;
+      loader.outerHTML = `
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; font-size:0.85rem; color:#334155;">
+          <h4 style="margin-bottom:8px; color:#0f172a;">Match Information</h4>
+          <p style="margin-bottom:4px;"><strong>Series:</strong> ${sanitize(m.series)}</p>
+          <p style="margin-bottom:4px;"><strong>Format:</strong> ${sanitize(m.format)}</p>
+          ${m.venue ? `<p style="margin-bottom:4px;"><strong>Venue:</strong> ${sanitize(m.venue)}</p>` : ""}
+          ${m.startTimePKT ? `<p style="margin-bottom:4px;"><strong>Start Time (PKT):</strong> ${sanitize(m.startTimePKT)}</p>` : ""}
+          ${d.toss ? `<p><strong>Toss:</strong> ${sanitize(d.toss)}</p>` : ""}
         </div>
       `;
-    }).join("");
+    } else {
+      loader.innerHTML = "<p>Match has not started yet. Full batting & bowling scorecard will appear once play begins.</p>";
+    }
   } catch (e) {
     const loader = document.getElementById("scorecard-loader");
     if (loader) loader.innerHTML = "<p>Scorecard details unavailable right now.</p>";
@@ -299,7 +482,13 @@ function applyFilters() {
     renderSeriesCards();
   } else {
     state.filteredList = state.rawMatches.filter(m => {
-      const matchStage = state.activeFilter === "all" || m.stage === state.activeFilter;
+      let matchStage = true;
+      if (state.activeFilter === "international") {
+        matchStage = m.isInternational;
+      } else if (state.activeFilter !== "all") {
+        matchStage = m.stage === state.activeFilter;
+      }
+
       const matchQuery = !q ||
         m.team1.toLowerCase().includes(q) ||
         m.team2.toLowerCase().includes(q) ||
@@ -311,6 +500,47 @@ function applyFilters() {
   }
 }
 
+function buildMatchCardElement(m) {
+  const card = document.createElement("article");
+  card.className = `match-card card-${m.stage}`;
+  const statusClass = m.stage === "live" ? "status-live" : m.stage === "upcoming" ? "status-upcoming" : "status-completed";
+
+  card.innerHTML = `
+    <div>
+      <div class="card-meta">
+        <span class="meta-series" title="${sanitize(m.series)}">${sanitize(m.series)} ${m.title ? `• ${sanitize(m.title)}` : ""}</span>
+        <div class="meta-badges">
+          ${m.isInternational ? '<span class="intl-badge">INTL</span>' : ""}
+          ${m.stage === "live" ? '<span class="stage-pill live">● LIVE</span>' : ""}
+          <span class="format-pill">${sanitize(m.format)}</span>
+        </div>
+      </div>
+      <div class="teams-list">
+        <div class="team-entry">
+          <div class="team-info">
+            ${m.flag1 ? `<img class="team-flag" src="${sanitize(m.flag1)}" alt="" onerror="this.style.display='none'">` : ""}
+            <span>${sanitize(m.team1)}</span>
+          </div>
+          <span class="team-score">${sanitize(m.score1 || "-")}</span>
+        </div>
+        <div class="team-entry">
+          <div class="team-info">
+            ${m.flag2 ? `<img class="team-flag" src="${sanitize(m.flag2)}" alt="" onerror="this.style.display='none'">` : ""}
+            <span>${sanitize(m.team2)}</span>
+          </div>
+          <span class="team-score">${sanitize(m.score2 || "-")}</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status ${statusClass}">${sanitize(m.status)}</div>
+      <span class="card-cta">Scorecard →</span>
+    </div>
+  `;
+  card.addEventListener("click", () => openMatchModal(m));
+  return card;
+}
+
 function renderMatchCards() {
   if (state.filteredList.length === 0) {
     elements.grid.innerHTML = '<div class="empty-state"><p>No matches found matching your filter.</p></div>';
@@ -319,43 +549,7 @@ function renderMatchCards() {
 
   elements.grid.innerHTML = "";
   state.filteredList.forEach(m => {
-    const card = document.createElement("article");
-    card.className = `match-card card-${m.stage}`;
-    const statusClass = m.stage === "live" ? "status-live" : m.stage === "upcoming" ? "status-upcoming" : "status-completed";
-
-    card.innerHTML = `
-      <div>
-        <div class="card-meta">
-          <span class="meta-series" title="${sanitize(m.series)}">${sanitize(m.series)} ${m.title ? `• ${sanitize(m.title)}` : ""}</span>
-          <div class="meta-badges">
-            ${m.stage === "live" ? '<span class="stage-pill live">● LIVE</span>' : ""}
-            <span class="format-pill">${sanitize(m.format)}</span>
-          </div>
-        </div>
-        <div class="teams-list">
-          <div class="team-entry">
-            <div class="team-info">
-              ${m.flag1 ? `<img class="team-flag" src="${sanitize(m.flag1)}" alt="" onerror="this.style.display='none'">` : ""}
-              <span>${sanitize(m.team1)}</span>
-            </div>
-            <span class="team-score">${sanitize(m.score1 || "-")}</span>
-          </div>
-          <div class="team-entry">
-            <div class="team-info">
-              ${m.flag2 ? `<img class="team-flag" src="${sanitize(m.flag2)}" alt="" onerror="this.style.display='none'">` : ""}
-              <span>${sanitize(m.team2)}</span>
-            </div>
-            <span class="team-score">${sanitize(m.score2 || "-")}</span>
-          </div>
-        </div>
-      </div>
-      <div class="card-footer-row">
-        <div class="card-status ${statusClass}">${sanitize(m.status)}</div>
-        <span class="card-cta">Scorecard →</span>
-      </div>
-    `;
-    card.addEventListener("click", () => openMatchModal(m));
-    elements.grid.appendChild(card);
+    elements.grid.appendChild(buildMatchCardElement(m));
   });
 }
 
@@ -424,10 +618,12 @@ function initEvents() {
 
       if (state.currentView === "series") {
         elements.stageFilterGroup.classList.add("hidden");
+        elements.pakSection.classList.add("hidden");
         elements.sectionHeading.textContent = "INTERNATIONAL & DOMESTIC SERIES ARCHIVE";
       } else {
         elements.stageFilterGroup.classList.remove("hidden");
-        elements.sectionHeading.textContent = "LIVE & RECENT CRICKET SCORES";
+        elements.pakSection.classList.remove("hidden");
+        elements.sectionHeading.textContent = "INTERNATIONAL & FEATURED CRICKET SCORES";
       }
 
       refreshView();
