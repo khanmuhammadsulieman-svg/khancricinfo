@@ -252,6 +252,64 @@ body {
   flex: 1;
 }
 
+/* Pakistan Men's Cricket Spotlight Section */
+.pak-spotlight {
+  background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+  border: 2px solid #10b981;
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  box-shadow: 0 10px 25px rgba(6, 78, 59, 0.18);
+  color: #ffffff;
+}
+
+.pak-spotlight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pak-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pak-badge {
+  background: #fbbf24;
+  color: #064e3b;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
+.pak-title-group h3 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ecfdf5;
+}
+
+.pak-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+}
+
+.intl-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
 /* Glassmorphic Filter & Search Bar */
 .cb-toolbar-card {
   background: rgba(255, 255, 255, 0.9);
@@ -372,7 +430,6 @@ body {
               border-color 0.22s ease;
 }
 
-/* Top Color Strip per Match Stage */
 .match-card::before, .series-card::before {
   content: "";
   position: absolute;
@@ -404,7 +461,6 @@ body {
   box-shadow: 0 16px 28px -6px rgba(15, 23, 42, 0.1), 0 0 0 2px rgba(16, 185, 129, 0.18);
 }
 
-/* Card Header Metadata */
 .card-meta {
   display: flex;
   justify-content: space-between;
@@ -455,7 +511,6 @@ body {
   animation: pulseBadge 1.6s infinite;
 }
 
-/* Inner Scoreboard Box (Gives the card depth & outline structure) */
 .teams-list {
   background: var(--bg-well);
   border: 1px solid var(--border-light);
@@ -509,7 +564,6 @@ body {
   border: 1px solid var(--border-light);
 }
 
-/* Card Footer Status & Action Pill */
 .card-footer-row {
   display: flex;
   justify-content: space-between;
@@ -555,7 +609,6 @@ body {
   border-color: var(--brand-primary);
 }
 
-/* Series Card */
 .series-card h4 {
   font-size: 1.02rem;
   font-weight: 800;
