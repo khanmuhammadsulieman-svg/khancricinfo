@@ -3,58 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KhanCricinfo - Live Scores & Scorecards</title>
+  <title>KhanCricinfo - Live Cricket Scores, Schedule & News</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <header class="navbar">
-    <div class="brand">
-      <span class="logo-icon">🏏</span>
-      <div>
-        <h1>KhanCricinfo</h1>
-        <p class="subtitle">Live ESPN Cricinfo Data</p>
+  <!-- Cricbuzz-Style Signature Green Top Header -->
+  <header class="cb-header">
+    <div class="cb-header-inner">
+      <div class="cb-brand">
+        <span class="cb-logo-icon">🏏</span>
+        <div class="cb-logo-text">
+          <h1>Khan<span>Cricinfo</span></h1>
+        </div>
       </div>
-    </div>
-    <div class="nav-actions">
-      <span id="auto-refresh-timer" class="refresh-pill">Refreshing in: 90s</span>
-      <button id="btn-manual-refresh" class="btn-primary">↻ Refresh</button>
+
+      <nav class="cb-nav">
+        <button class="cb-nav-link view-tab active" data-view="current">Live Scores</button>
+        <button class="cb-nav-link view-tab" data-view="series">Series & Archives</button>
+      </nav>
+
+      <div class="cb-actions">
+        <span id="auto-refresh-timer" class="cb-timer">Auto-refresh: 90s</span>
+        <button id="btn-manual-refresh" class="cb-refresh-btn" title="Refresh Scores">↻ Refresh</button>
+      </div>
     </div>
   </header>
 
-  <div class="controls-container">
-    <div class="main-tabs">
-      <button class="view-tab active" data-view="current">⚡ Live & Recent</button>
-      <button class="view-tab" data-view="series">🏆 Series & Tours</button>
-    </div>
-
-    <div class="filter-row">
-      <div class="search-box">
-        <input type="text" id="search-input" placeholder="Search team, venue, tournament..." />
-      </div>
-      <div id="stage-filter-group" class="filter-group">
-        <button class="filter-tab active" data-filter="all">All</button>
-        <button class="filter-tab" data-filter="live">🔴 Live</button>
-        <button class="filter-tab" data-filter="completed">🏁 Result</button>
+  <!-- Dark Sub-Header Strip (Quick Match Ticker Bar) -->
+  <div class="cb-subnav">
+    <div class="cb-subnav-inner">
+      <span class="cb-matches-tag">MATCHES</span>
+      <div id="top-ticker" class="cb-ticker-links">
+        <span>Loading featured matches...</span>
       </div>
     </div>
   </div>
 
-  <section id="status-bar" class="status-bar hidden"></section>
+  <!-- Featured Horizontal Match Strip (Cricbuzz Top Carousel) -->
+  <section class="cb-featured-section">
+    <div id="featured-strip" class="cb-featured-strip">
+      <!-- Populated dynamically via JS -->
+    </div>
+  </section>
 
-  <main class="dashboard-content">
+  <!-- Main Content Container -->
+  <main class="cb-container">
+    <!-- Filter & Search Bar Card -->
+    <div class="cb-toolbar-card">
+      <div id="stage-filter-group" class="cb-pills">
+        <button class="filter-tab active" data-filter="all">All Matches</button>
+        <button class="filter-tab" data-filter="live">Live Now</button>
+        <button class="filter-tab" data-filter="upcoming">Upcoming</button>
+        <button class="filter-tab" data-filter="completed">Recent Results</button>
+      </div>
+
+      <div class="cb-search">
+        <input type="text" id="search-input" placeholder="Search team, series, or venue..." />
+      </div>
+    </div>
+
+    <!-- Alert / Error Bar -->
+    <section id="status-bar" class="status-bar hidden"></section>
+
+    <!-- Section Title -->
+    <div class="cb-section-header">
+      <h2 id="section-heading">LIVE & RECENT CRICKET SCORES</h2>
+    </div>
+
+    <!-- Main Matches / Series Grid -->
     <div id="matches-grid" class="matches-grid">
       <div class="loading-state">
         <div class="spinner"></div>
-        <p>Connecting to Parse ESPN stream...</p>
+        <p>Loading live cricket scores...</p>
       </div>
     </div>
   </main>
 
+  <!-- Footer -->
+  <footer class="cb-footer">
+    <div class="cb-footer-inner">
+      <strong>KhanCricinfo</strong> — Real-time Cricket Scores, Fixtures & Statistics
+    </div>
+  </footer>
+
+  <!-- Match Scorecard Modal -->
   <div id="detail-modal" class="modal-overlay hidden">
     <div class="modal-box">
-      <button id="btn-close-modal" class="modal-close">&times;</button>
-      <div id="modal-body"></div>
+      <div class="modal-header-bar">
+        <span id="modal-series-title">Match Center</span>
+        <button id="btn-close-modal" class="modal-close">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-content-area"></div>
     </div>
   </div>
 
