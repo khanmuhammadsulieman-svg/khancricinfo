@@ -45,40 +45,36 @@ app.get("/api/live", async (req, res) => {
   }
 });
 
-// 2. Full Scorecard (Requires match & series IDs)
+// 2. Full Scorecard
 app.get("/api/scorecard/:objectId", async (req, res) => {
   try {
     const matchId = Number(req.params.objectId) || req.params.objectId;
     const seriesId = Number(req.query.seriesId) || req.query.seriesId;
 
-    const payload = {
+    const data = await callParseEndpoint("get_match_scorecard", {
       objectId: matchId,
       match_id: matchId,
       series_id: seriesId,
       seriesObjectId: seriesId
-    };
-
-    const data = await callParseEndpoint("get_match_scorecard", payload);
+    });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// 3. Match Details (Fallback for Upcoming Matches / Squads)
+// 3. Match Details
 app.get("/api/match-details/:objectId", async (req, res) => {
   try {
     const matchId = Number(req.params.objectId) || req.params.objectId;
     const seriesId = Number(req.query.seriesId) || req.query.seriesId;
 
-    const payload = {
+    const data = await callParseEndpoint("get_match_details", {
       objectId: matchId,
       match_id: matchId,
       series_id: seriesId,
       seriesObjectId: seriesId
-    };
-
-    const data = await callParseEndpoint("get_match_details", payload);
+    });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -89,6 +85,30 @@ app.get("/api/match-details/:objectId", async (req, res) => {
 app.get("/api/series", async (req, res) => {
   try {
     const data = await callParseEndpoint("get_series_fixtures");
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. Players Directory
+app.get("/api/players", async (req, res) => {
+  try {
+    const data = await callParseEndpoint("get_players");
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6. Player Profile & Stats
+app.get("/api/player-info/:objectId", async (req, res) => {
+  try {
+    const playerId = Number(req.params.objectId) || req.params.objectId;
+    const data = await callParseEndpoint("get_player_info", {
+      objectId: playerId,
+      player_id: playerId
+    });
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
