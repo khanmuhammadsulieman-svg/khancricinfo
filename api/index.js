@@ -1,116 +1,98 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KhanCricinfo - Live Cricket Scores, Pakistan Cricket & International Fixtures</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
+const express = require("express");
+const cors = require("cors");
 
-  <!-- Top Brand Header -->
-  <header class="cb-header">
-    <div class="cb-header-inner">
-      <div class="cb-brand">
-        <span class="cb-logo-icon">🏏</span>
-        <div class="cb-logo-text">
-          <h1>Khan<span>Cricinfo</span></h1>
-        </div>
-      </div>
+const app = express();
+const SCRAPER_ID = "1d60bec3-9a21-42ea-8ee9-e5ef840ba233";
+const BASE_URL = `https://api.parse.bot/scraper/${SCRAPER_ID}`;
 
-      <nav class="cb-nav">
-        <button class="cb-nav-link view-tab active" data-view="current">Live & International</button>
-        <button class="cb-nav-link view-tab" data-view="series">Series & Tours</button>
-      </nav>
+app.use(cors());
+app.use(express.json());
 
-      <div class="cb-actions">
-        <span id="auto-refresh-timer" class="cb-timer">Auto-refresh: 90s</span>
-        <button id="btn-manual-refresh" class="cb-refresh-btn">↻ Refresh</button>
-      </div>
-    </div>
-  </header>
+async function callParseEndpoint(endpoint, payload = {}) {
+  const apiKey = process.env.PARSE_API_KEY;
+  if (!apiKey) {
+    throw new Error("PARSE_API_KEY is not configured in Vercel Environment Variables.");
+  }
 
-  <!-- Quick Match Ticker Bar -->
-  <div class="cb-subnav">
-    <div class="cb-subnav-inner">
-      <span class="cb-matches-tag">INTERNATIONAL</span>
-      <div id="top-ticker" class="cb-ticker-links">
-        <span>Loading international fixtures...</span>
-      </div>
-    </div>
-  </div>
+  const url = `${BASE_URL}/${endpoint}`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "X-API-Key": apiKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
 
-  <!-- Featured International Match Carousel -->
-  <section class="cb-featured-section">
-    <div id="featured-strip" class="cb-featured-strip"></div>
-  </section>
+  if (response.status === 401) throw new Error("Invalid Parse API Key (401)");
+  if (response.status === 402) throw new Error("Out of Parse credits (402)");
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    throw new Error(errorJson.error || `Parse request failed with HTTP ${response.status}`);
+  }
 
-  <!-- Main Content Container -->
-  <main class="cb-container">
+  const envelope = await response.json();
+  return envelope.data;
+}
 
-    <!-- Special Segment: Pakistan Men's National Team Spotlight -->
-    <section id="pak-spotlight-section" class="pak-spotlight">
-      <div class="pak-spotlight-header">
-        <div class="pak-title-group">
-          <span class="pak-badge">🇵🇰 PAKISTAN MEN'S CRICKET</span>
-          <h3>National Team Live Scorecard & Upcoming Schedule</h3>
-        </div>
-      </div>
-      <div id="pak-matches-grid" class="pak-grid">
-        <!-- Populated dynamically -->
-      </div>
-    </section>
+// 1. Live Scores
+app.get("/api/live", async (req, res) => {
+  try {
+    const data = await callParseEndpoint("get_live_scores");
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-    <!-- Filter & Search Bar Card -->
-    <div class="cb-toolbar-card">
-      <div id="stage-filter-group" class="cb-pills">
-        <button class="filter-tab active" data-filter="all">All (Int'l First)</button>
-        <button class="filter-tab" data-filter="international">🌍 International Only</button>
-        <button class="filter-tab" data-filter="live">🔴 Live Now</button>
-        <button class="filter-tab" data-filter="upcoming">⏳ Upcoming</button>
-        <button class="filter-tab" data-filter="completed">🏁 Results</button>
-      </div>
+// 2. Full Scorecard (Requires match & series IDs)
+app.get("/api/scorecard/:objectId", async (req, res) => {
+  try {
+    const matchId = Number(req.params.objectId) || req.params.objectId;
+    const seriesId = Number(req.query.seriesId) || req.query.seriesId;
 
-      <div class="cb-search">
-        <input type="text" id="search-input" placeholder="Search team, series, or venue..." />
-      </div>
-    </div>
+    const payload = {
+      objectId: matchId,
+      match_id: matchId,
+      series_id: seriesId,
+      seriesObjectId: seriesId
+    };
 
-    <!-- Alert / Error Bar -->
-    <section id="status-bar" class="status-bar hidden"></section>
+    const data = await callParseEndpoint("get_match_scorecard", payload);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-    <!-- Section Title -->
-    <div class="cb-section-header">
-      <h2 id="section-heading">INTERNATIONAL & FEATURED CRICKET SCORES</h2>
-    </div>
+// 3. Match Details (Fallback for Upcoming Matches / Squads)
+app.get("/api/match-details/:objectId", async (req, res) => {
+  try {
+    const matchId = Number(req.params.objectId) || req.params.objectId;
+    const seriesId = Number(req.query.seriesId) || req.query.seriesId;
 
-    <!-- Main Matches / Series Grid -->
-    <div id="matches-grid" class="matches-grid">
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading live cricket scores...</p>
-      </div>
-    </div>
-  </main>
+    const payload = {
+      objectId: matchId,
+      match_id: matchId,
+      series_id: seriesId,
+      seriesObjectId: seriesId
+    };
 
-  <!-- Footer -->
-  <footer class="cb-footer">
-    <div class="cb-footer-inner">
-      <strong>KhanCricinfo</strong> — Real-time Cricket Scores, Fixtures & Statistics
-    </div>
-  </footer>
+    const data = await callParseEndpoint("get_match_details", payload);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-  <!-- Match Scorecard Modal -->
-  <div id="detail-modal" class="modal-overlay hidden">
-    <div class="modal-box">
-      <div class="modal-header-bar">
-        <span id="modal-series-title">Match Center</span>
-        <button id="btn-close-modal" class="modal-close">&times;</button>
-      </div>
-      <div id="modal-body" class="modal-content-area"></div>
-    </div>
-  </div>
+// 4. Series & Fixtures
+app.get("/api/series", async (req, res) => {
+  try {
+    const data = await callParseEndpoint("get_series_fixtures");
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-  <script src="app.js"></script>
-</body>
-</html>
+module.exports = app;
