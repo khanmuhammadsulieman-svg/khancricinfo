@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KhanCricinfo - Live Cricket Scores, Schedule & News</title>
+  <title>KhanCricinfo - Live Cricket Scores, Pakistan Cricket & International Fixtures</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- Cricbuzz-Style Signature Green Top Header -->
+  <!-- Top Brand Header -->
   <header class="cb-header">
     <div class="cb-header-inner">
       <div class="cb-brand">
@@ -19,43 +19,56 @@
       </div>
 
       <nav class="cb-nav">
-        <button class="cb-nav-link view-tab active" data-view="current">Live Scores</button>
-        <button class="cb-nav-link view-tab" data-view="series">Series & Archives</button>
+        <button class="cb-nav-link view-tab active" data-view="current">Live & International</button>
+        <button class="cb-nav-link view-tab" data-view="series">Series & Tours</button>
       </nav>
 
       <div class="cb-actions">
         <span id="auto-refresh-timer" class="cb-timer">Auto-refresh: 90s</span>
-        <button id="btn-manual-refresh" class="cb-refresh-btn" title="Refresh Scores">↻ Refresh</button>
+        <button id="btn-manual-refresh" class="cb-refresh-btn">↻ Refresh</button>
       </div>
     </div>
   </header>
 
-  <!-- Dark Sub-Header Strip (Quick Match Ticker Bar) -->
+  <!-- Quick Match Ticker Bar -->
   <div class="cb-subnav">
     <div class="cb-subnav-inner">
-      <span class="cb-matches-tag">MATCHES</span>
+      <span class="cb-matches-tag">INTERNATIONAL</span>
       <div id="top-ticker" class="cb-ticker-links">
-        <span>Loading featured matches...</span>
+        <span>Loading international fixtures...</span>
       </div>
     </div>
   </div>
 
-  <!-- Featured Horizontal Match Strip (Cricbuzz Top Carousel) -->
+  <!-- Featured International Match Carousel -->
   <section class="cb-featured-section">
-    <div id="featured-strip" class="cb-featured-strip">
-      <!-- Populated dynamically via JS -->
-    </div>
+    <div id="featured-strip" class="cb-featured-strip"></div>
   </section>
 
   <!-- Main Content Container -->
   <main class="cb-container">
+
+    <!-- Special Segment: Pakistan Men's National Team Spotlight -->
+    <section id="pak-spotlight-section" class="pak-spotlight">
+      <div class="pak-spotlight-header">
+        <div class="pak-title-group">
+          <span class="pak-badge">🇵🇰 PAKISTAN MEN'S CRICKET</span>
+          <h3>National Team Live Scorecard & Upcoming Schedule</h3>
+        </div>
+      </div>
+      <div id="pak-matches-grid" class="pak-grid">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
     <!-- Filter & Search Bar Card -->
     <div class="cb-toolbar-card">
       <div id="stage-filter-group" class="cb-pills">
-        <button class="filter-tab active" data-filter="all">All Matches</button>
-        <button class="filter-tab" data-filter="live">Live Now</button>
-        <button class="filter-tab" data-filter="upcoming">Upcoming</button>
-        <button class="filter-tab" data-filter="completed">Recent Results</button>
+        <button class="filter-tab active" data-filter="all">All (Int'l First)</button>
+        <button class="filter-tab" data-filter="international">🌍 International Only</button>
+        <button class="filter-tab" data-filter="live">🔴 Live Now</button>
+        <button class="filter-tab" data-filter="upcoming">⏳ Upcoming</button>
+        <button class="filter-tab" data-filter="completed">🏁 Results</button>
       </div>
 
       <div class="cb-search">
@@ -68,7 +81,7 @@
 
     <!-- Section Title -->
     <div class="cb-section-header">
-      <h2 id="section-heading">LIVE & RECENT CRICKET SCORES</h2>
+      <h2 id="section-heading">INTERNATIONAL & FEATURED CRICKET SCORES</h2>
     </div>
 
     <!-- Main Matches / Series Grid -->
