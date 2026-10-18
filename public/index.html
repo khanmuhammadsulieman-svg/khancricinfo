@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KhanCricinfo - Live Cricket Scores, Pakistan Cricket & International Fixtures</title>
+  <title>KhanCricinfo - Live Cricket Scores, Pakistan Cricket & Player Directory</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -21,6 +21,7 @@
       <nav class="cb-nav">
         <button class="cb-nav-link view-tab active" data-view="current">Live & International</button>
         <button class="cb-nav-link view-tab" data-view="series">Series & Tours</button>
+        <button class="cb-nav-link view-tab" data-view="players">Players Directory</button>
       </nav>
 
       <div class="cb-actions">
@@ -56,9 +57,7 @@
           <h3>National Team Live Scorecard & Upcoming Schedule</h3>
         </div>
       </div>
-      <div id="pak-matches-grid" class="pak-grid">
-        <!-- Populated dynamically -->
-      </div>
+      <div id="pak-matches-grid" class="pak-grid"></div>
     </section>
 
     <!-- Filter & Search Bar Card -->
@@ -72,7 +71,7 @@
       </div>
 
       <div class="cb-search">
-        <input type="text" id="search-input" placeholder="Search team, series, or venue..." />
+        <input type="text" id="search-input" placeholder="Search team, series, venue, or player..." />
       </div>
     </div>
 
@@ -84,7 +83,7 @@
       <h2 id="section-heading">INTERNATIONAL & FEATURED CRICKET SCORES</h2>
     </div>
 
-    <!-- Main Matches / Series Grid -->
+    <!-- Main Matches / Series / Players Grid -->
     <div id="matches-grid" class="matches-grid">
       <div class="loading-state">
         <div class="spinner"></div>
@@ -100,7 +99,7 @@
     </div>
   </footer>
 
-  <!-- Match Scorecard Modal -->
+  <!-- Detail Modal -->
   <div id="detail-modal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header-bar">
