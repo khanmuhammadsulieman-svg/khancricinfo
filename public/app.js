@@ -1,5 +1,5 @@
 /**
- * KhanCricinfo - Cricbuzz UI Controller
+ * KhanCricinfo - Modern Sports UI Controller
  */
 
 const REFRESH_SECONDS = 90;
@@ -41,6 +41,15 @@ function sanitize(str) {
   }[t] || t));
 }
 
+// Clean raw ESPN placeholder variables like {{MATCH_START_HOURS}}
+function cleanStatusText(rawText) {
+  if (!rawText) return "Scheduled";
+  if (rawText.includes("{{")) {
+    return "Scheduled • Upcoming Fixture";
+  }
+  return rawText;
+}
+
 function setStatus(msg, isAlert = false) {
   if (!msg) {
     elements.statusBar.className = "status-bar hidden";
@@ -50,7 +59,7 @@ function setStatus(msg, isAlert = false) {
   elements.statusBar.textContent = msg;
 }
 
-// Accurately classify match into 'live', 'upcoming', or 'completed'
+// Classify match into 'live', 'upcoming', or 'completed'
 function detectStage(m) {
   const rawState = (m.state || "").toUpperCase();
   const rawStage = (m.stage || "").toUpperCase();
@@ -61,6 +70,7 @@ function detectStage(m) {
     rawStage === "SCHEDULED" ||
     statusTxt.includes("yet to begin") ||
     statusTxt.includes("starts at") ||
+    statusTxt.includes("starts in") ||
     statusTxt.includes("upcoming")
   ) {
     return "upcoming";
@@ -69,6 +79,7 @@ function detectStage(m) {
   if (
     rawState === "LIVE" ||
     rawStage === "RUNNING" ||
+    statusTxt.includes("live") ||
     statusTxt.includes("opt to") ||
     statusTxt.includes("chose to") ||
     statusTxt.includes("trail by") ||
@@ -114,7 +125,7 @@ async function loadLiveMatches() {
         flag2: t2.team?.imageUrl ? `${CDN_BASE}${t2.team.imageUrl}` : "",
         score1: t1.score || "",
         score2: t2.score || "",
-        status: m.statusText || m.status || "Scheduled",
+        status: cleanStatusText(m.statusText || m.status),
         series: m.series?.name || "International Cricket",
         venue: m.ground?.smallName || m.ground?.name || ""
       };
@@ -128,15 +139,13 @@ async function loadLiveMatches() {
   }
 }
 
-// Render Cricbuzz Top Dark Subnav Ticker & Horizontal Carousel
 function renderTopCarouselAndTicker() {
-  const featured = state.rawMatches.slice(0, 6);
+  const featured = state.rawMatches.slice(0, 8);
 
-  // 1. Dark Ticker Links
   if (featured.length > 0) {
     elements.topTicker.innerHTML = featured.map((m, idx) => `
       <span class="cb-ticker-item" data-idx="${idx}">
-        ${sanitize(m.team1Abbr)} vs ${sanitize(m.team2Abbr)} - ${m.stage === "live" ? "Live" : m.stage === "upcoming" ? "Preview" : "Result"}
+        <strong>${sanitize(m.team1Abbr)} vs ${sanitize(m.team2Abbr)}</strong> • ${m.stage === "live" ? "🔴 Live" : m.stage === "upcoming" ? "⏳ Upcoming" : "Result"}
       </span>
     `).join("");
 
@@ -148,7 +157,6 @@ function renderTopCarouselAndTicker() {
     });
   }
 
-  // 2. Horizontal White Mini Cards
   elements.featuredStrip.innerHTML = "";
   featured.forEach(m => {
     const mini = document.createElement("div");
@@ -161,18 +169,18 @@ function renderTopCarouselAndTicker() {
           <span class="meta-series">${sanitize(m.series)}</span>
           <span class="format-pill">${sanitize(m.format)}</span>
         </div>
-        <div class="teams-list">
+        <div class="teams-list" style="padding:10px 12px; margin-bottom:10px;">
           <div class="team-entry">
-            <span class="team-info">${sanitize(m.team1Abbr)}</span>
-            <span class="team-score">${sanitize(m.score1 || "-")}</span>
+            <span class="team-info" style="font-size:0.86rem;">${sanitize(m.team1Abbr)}</span>
+            <span class="team-score" style="font-size:0.85rem;">${sanitize(m.score1 || "-")}</span>
           </div>
           <div class="team-entry">
-            <span class="team-info">${sanitize(m.team2Abbr)}</span>
-            <span class="team-score">${sanitize(m.score2 || "-")}</span>
+            <span class="team-info" style="font-size:0.86rem;">${sanitize(m.team2Abbr)}</span>
+            <span class="team-score" style="font-size:0.85rem;">${sanitize(m.score2 || "-")}</span>
           </div>
         </div>
       </div>
-      <div class="card-status ${statusClass}">${sanitize(m.status)}</div>
+      <div class="card-status ${statusClass}" style="font-size:0.75rem;">${sanitize(m.status)}</div>
     `;
     mini.addEventListener("click", () => openMatchModal(m));
     elements.featuredStrip.appendChild(mini);
@@ -211,23 +219,23 @@ async function loadSeries() {
 async function openMatchModal(m) {
   elements.modalSeriesTitle.textContent = `${m.team1} vs ${m.team2} — ${m.series}`;
   elements.modalBody.innerHTML = `
-    <div style="margin-bottom: 14px;">
-      <p style="font-size:0.82rem; color:#666;">${sanitize(m.title)} ${m.venue ? `• ${sanitize(m.venue)}` : ""}</p>
-      <div style="background:#f8faf9; border:1px solid #e0e0e0; padding:12px 14px; border-radius:4px; margin:10px 0;">
-        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:1rem;">
+    <div style="margin-bottom: 16px;">
+      <p style="font-size:0.84rem; color:#64748b; font-weight:600;">${sanitize(m.title)} ${m.venue ? `• 📍 ${sanitize(m.venue)}` : ""}</p>
+      <div style="background:#f8fafc; border:1.5px solid #cbd5e1; padding:14px 16px; border-radius:12px; margin:12px 0;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:1.05rem;">
           <strong>${sanitize(m.team1)}</strong>
-          <strong style="color:#009270;">${sanitize(m.score1 || "-")}</strong>
+          <strong style="color:#047857;">${sanitize(m.score1 || "-")}</strong>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:1rem;">
+        <div style="display:flex; justify-content:space-between; font-size:1.05rem;">
           <strong>${sanitize(m.team2)}</strong>
-          <strong style="color:#009270;">${sanitize(m.score2 || "-")}</strong>
+          <strong style="color:#047857;">${sanitize(m.score2 || "-")}</strong>
         </div>
       </div>
-      <p class="${m.stage === 'live' ? 'status-live' : 'status-completed'}" style="font-size:0.88rem;">
+      <p class="${m.stage === 'live' ? 'status-live' : m.stage === 'upcoming' ? 'status-upcoming' : 'status-completed'}" style="font-size:0.9rem; font-weight:700;">
         ${sanitize(m.status)}
       </p>
     </div>
-    <div id="scorecard-loader" style="text-align:center; padding:16px; color:#666; font-size:0.85rem;">
+    <div id="scorecard-loader" style="text-align:center; padding:18px; color:#64748b; font-size:0.86rem;">
       <div class="spinner"></div>
       Fetching detailed scorecard...
     </div>
@@ -262,8 +270,8 @@ async function openMatchModal(m) {
       `).join("");
 
       return `
-        <div style="margin-top:14px;">
-          <h4 style="background:#4a4a4a; color:#fff; padding:6px 10px; font-size:0.82rem; border-radius:3px;">
+        <div style="margin-top:16px;">
+          <h4 style="background:#0f172a; color:#fff; padding:8px 12px; font-size:0.84rem; border-radius:8px;">
             ${sanitize(inn.team?.name || "Innings")} ${inn.runs ? `— ${inn.runs}/${inn.wickets} (${inn.overs} ov)` : ""}
           </h4>
           <table class="cb-score-table">
@@ -312,14 +320,17 @@ function renderMatchCards() {
   elements.grid.innerHTML = "";
   state.filteredList.forEach(m => {
     const card = document.createElement("article");
-    card.className = "match-card";
+    card.className = `match-card card-${m.stage}`;
     const statusClass = m.stage === "live" ? "status-live" : m.stage === "upcoming" ? "status-upcoming" : "status-completed";
 
     card.innerHTML = `
       <div>
         <div class="card-meta">
           <span class="meta-series" title="${sanitize(m.series)}">${sanitize(m.series)} ${m.title ? `• ${sanitize(m.title)}` : ""}</span>
-          <span class="format-pill">${sanitize(m.format)}</span>
+          <div class="meta-badges">
+            ${m.stage === "live" ? '<span class="stage-pill live">● LIVE</span>' : ""}
+            <span class="format-pill">${sanitize(m.format)}</span>
+          </div>
         </div>
         <div class="teams-list">
           <div class="team-entry">
@@ -338,7 +349,10 @@ function renderMatchCards() {
           </div>
         </div>
       </div>
-      <div class="card-status ${statusClass}">${sanitize(m.status)}</div>
+      <div class="card-footer-row">
+        <div class="card-status ${statusClass}">${sanitize(m.status)}</div>
+        <span class="card-cta">Scorecard →</span>
+      </div>
     `;
     card.addEventListener("click", () => openMatchModal(m));
     elements.grid.appendChild(card);
@@ -358,13 +372,13 @@ function renderSeriesCards() {
     card.innerHTML = `
       <div>
         <div class="card-meta">
-          <span class="meta-series">CRICKET SERIES</span>
-          <span class="format-pill">TOUR</span>
+          <span class="meta-series">OFFICIAL TOURNAMENT</span>
+          <span class="format-pill">SERIES</span>
         </div>
         <h4>${sanitize(s.name || s.title || "Series")}</h4>
       </div>
-      <div class="card-status status-completed">
-        📅 ${sanitize(s.startDate || "Scheduled Season")}
+      <div class="card-footer-row">
+        <div class="card-status status-completed">📅 ${sanitize(s.startDate || "Scheduled Season")}</div>
       </div>
     `;
     elements.grid.appendChild(card);
