@@ -9,22 +9,21 @@ const PARSE_KEY = process.env.PARSE_API_KEY;
 const SCRAPER_ID = "82e4a3f6-6de0-450e-8c69-03a686593066";
 const BASE_URL = `https://api.parse.bot/scraper/${SCRAPER_ID}`;
 
-if (!PARSE_KEY) {
-  console.error("CRITICAL ERROR: PARSE_API_KEY is not set in your .env file!");
-  process.exit(1);
-}
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Generic caller to Parse API
 async function callParseEndpoint(endpoint, payload = {}) {
+  if (!process.env.PARSE_API_KEY) {
+    throw new Error("PARSE_API_KEY is not configured in Vercel Environment Variables.");
+  }
+
   const url = `${BASE_URL}/${endpoint}`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "X-API-Key": PARSE_KEY,
+      "X-API-Key": process.env.PARSE_API_KEY,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)
@@ -85,6 +84,17 @@ app.get("/api/series", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`KhanCricinfo running at http://localhost:${PORT}`);
+// Fallback to index.html for root path
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+// Local development listener
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
+
+// Export app for Vercel Serverless Function
+module.exports = app;
