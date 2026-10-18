@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KhanCricinfo - Live Scores & Scorecards</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="brand">
+      <span class="logo-icon">🏏</span>
+      <div>
+        <h1>KhanCricinfo</h1>
+        <p class="subtitle">Live ESPN Cricinfo Data</p>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <span id="auto-refresh-timer" class="refresh-pill">Refreshing in: 90s</span>
+      <button id="btn-manual-refresh" class="btn-primary">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div class="controls-container">
+    <div class="main-tabs">
+      <button class="view-tab active" data-view="current">⚡ Live & Recent</button>
+      <button class="view-tab" data-view="series">🏆 Series & Tours</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search team, venue, tournament..." />
+      </div>
+      <div id="stage-filter-group" class="filter-group">
+        <button class="filter-tab active" data-filter="all">All</button>
+        <button class="filter-tab" data-filter="live">🔴 Live</button>
+        <button class="filter-tab" data-filter="completed">🏁 Result</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="status-bar" class="status-bar hidden"></section>
+
+  <main class="dashboard-content">
+    <div id="matches-grid" class="matches-grid">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Connecting to Parse ESPN stream...</p>
+      </div>
+    </div>
+  </main>
+
+  <div id="detail-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <button id="btn-close-modal" class="modal-close">&times;</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
